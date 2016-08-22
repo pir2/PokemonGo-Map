@@ -379,7 +379,7 @@ def search_overseer_thread_ss(args, new_location_queue, pause_bit, encryption_li
                    args=(threadStatus, search_items_queue, db_updates_queue, wh_queue))
         t.daemon = True
         t.start()
-
+    loc = new_location_queue.get()
     # Load a spawnlist
     if os.path.isfile(args.spawnpoint_scanning):  # if the spawns file exists use it
         threadStatus['Overseer']['message'] = "Getting spawnpoints from file"
@@ -396,7 +396,6 @@ def search_overseer_thread_ss(args, new_location_queue, pause_bit, encryption_li
             return
     else:  # if spawns file dose not exist use the db
         threadStatus['Overseer']['message'] = "Getting spawnpoints from database"
-        loc = new_location_queue.get()
         spawns = Pokemon.get_spawnpoints_in_hex(loc, args.step_limit)
     log.info('Total of %d spawns to track', len(spawns))
 
