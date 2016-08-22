@@ -26,7 +26,7 @@ import time
 import geopy
 import geopy.distance
 
-from operator import itemgetter
+from operator import attrgetter
 from threading import Thread, Lock
 from queue import Queue, Empty
 
@@ -36,6 +36,7 @@ from pgoapi import utilities as util
 from pgoapi.exceptions import AuthException
 
 from .models import parse_map, Pokemon
+from .kppspawns import kPlusPlus, kPoint
 from .fakePogoApi import FakePogoApi
 import terminalsize
 
@@ -136,7 +137,7 @@ def SbSearch(Slist, T):
     last = len(Slist) - 1
     while first < last:
         mp = (first + last) // 2
-        if Slist[mp]['time'] < T:
+        if Slist[mp].time < T:
             first = mp + 1
         else:
             last = mp
@@ -379,25 +380,7 @@ def search_overseer_thread_ss(args, new_location_queue, pause_bit, encryption_li
         t.daemon = True
         t.start()
 
-    # Create a search_worker_thread_ss per account
-    log.info('Starting search worker threads')
-    for i, account in enumerate(args.accounts):
-        log.debug('Starting search worker thread %d for user %s', i, account['username'])
-        threadStatus['Worker {:03}'.format(i)] = {}
-        threadStatus['Worker {:03}'.format(i)]['type'] = "Worker"
-        threadStatus['Worker {:03}'.format(i)]['message'] = "Creating thread..."
-        threadStatus['Worker {:03}'.format(i)]['success'] = 0
-        threadStatus['Worker {:03}'.format(i)]['fail'] = 0
-        threadStatus['Worker {:03}'.format(i)]['skip'] = 0
-        threadStatus['Worker {:03}'.format(i)]['noitems'] = 0
-        t = Thread(target=search_worker_thread_ss,
-                   name='ss-worker-{}'.format(i),
-                   args=(args, account, search_items_queue, parse_lock,
-                         encryption_lib_path, threadStatus['Worker {:03}'.format(i)],
-                         db_updates_queue, wh_queue))
-        t.daemon = True
-        t.start()
-
+    # Load a spawnlist
     if os.path.isfile(args.spawnpoint_scanning):  # if the spawns file exists use it
         threadStatus['Overseer']['message'] = "Getting spawnpoints from file"
         try:
@@ -415,20 +398,43 @@ def search_overseer_thread_ss(args, new_location_queue, pause_bit, encryption_li
         threadStatus['Overseer']['message'] = "Getting spawnpoints from database"
         loc = new_location_queue.get()
         spawns = Pokemon.get_spawnpoints_in_hex(loc, args.step_limit)
-    spawns.sort(key=itemgetter('time'))
     log.info('Total of %d spawns to track', len(spawns))
-    # find the inital location (spawn thats 60sec old)
-    pos = SbSearch(spawns, (curSec() + 3540) % 3600)
+
+    # Split spawns into clisters
+    threadStatus['Overseer']['message'] = "Splitting spawns into clusters"
+    log.info('Splitting spawns into %d clusters', len(args.accounts))
+    clustering = kPlusPlus(spawns, len(args.accounts), loc[0])
+    clustering.iterate(1000)
+    clusters = clustering.getGroups()
+    for cluster in clusters:
+        cluster.sort(key=attrgetter('time'))
+    log.info('maximum cluster size: %d spawns', max(clustering.getGroupSize()))
+
+	# insert spawnpoint optimisation here
+
+    # Create a search_worker_thread_ss per account
+    log.info('Starting search worker threads')
+    threadStatus['Overseer']['message'] = "Starting search worker threads"
+    for i, account in enumerate(args.accounts):
+        log.debug('Starting search worker thread %d for user %s', i, account['username'])
+        threadStatus['Worker {:03}'.format(i)] = {}
+        threadStatus['Worker {:03}'.format(i)]['type'] = "Worker"
+        threadStatus['Worker {:03}'.format(i)]['message'] = "Creating thread..."
+        threadStatus['Worker {:03}'.format(i)]['success'] = 0
+        threadStatus['Worker {:03}'.format(i)]['fail'] = 0
+        threadStatus['Worker {:03}'.format(i)]['skip'] = 0
+        threadStatus['Worker {:03}'.format(i)]['noitems'] = 0
+        t = Thread(target=search_worker_thread_ss,
+                   name='ss-worker-{}'.format(i),
+                   args=(args, account, clusters[i], parse_lock,
+                         encryption_lib_path, threadStatus['Worker {:03}'.format(i)],
+                         db_updates_queue, wh_queue))
+        t.daemon = True
+        t.start()
+
+    threadStatus['Overseer']['message'] = "Waiting until hell freezes over (or Niantic fixes the game)"
     while True:
-        while timeDif(curSec(), spawns[pos]['time']) < 60:
-            threadStatus['Overseer']['message'] = "Waiting for spawnpoints {} of {} to spawn at {}".format(pos, len(spawns), spawns[pos]['time'])
-            time.sleep(1)
-        # make location with a dummy height (seems to be more reliable than 0 height)
-        threadStatus['Overseer']['message'] = "Queuing spawnpoint {} of {}".format(pos, len(spawns))
-        location = [spawns[pos]['lat'], spawns[pos]['lng'], 40.32]
-        search_args = (pos, location, spawns[pos]['time'])
-        search_items_queue.put(search_args)
-        pos = (pos + 1) % len(spawns)
+        time.sleep(60)
 
 
 def search_worker_thread(args, account, search_items_queue, parse_lock, encryption_lib_path, status, dbq, whq):
@@ -548,7 +554,7 @@ def search_worker_thread(args, account, search_items_queue, parse_lock, encrypti
             time.sleep(sleep_time)
 
 
-def search_worker_thread_ss(args, account, search_items_queue, parse_lock, encryption_lib_path, status, dbq, whq):
+def search_worker_thread_ss(args, account, spawns, parse_lock, encryption_lib_path, status, dbq, whq):
     stagger_thread(args, account)
     log.debug('Search worker ss thread starting')
     status['message'] = "Search worker ss thread starting"
@@ -565,24 +571,28 @@ def search_worker_thread_ss(args, account, search_items_queue, parse_lock, encry
             if args.proxy:
                 api.set_proxy({'http': args.proxy, 'https': args.proxy})
             api.activate_signature(encryption_lib_path)
+            # find the inital location (spawn thats 60sec old)
+            pos = SbSearch(spawns, (curSec() + 3540) % 3600)
             # search forever loop
             while True:
-                # Grab the next thing to search (when available)
-                status['message'] = "Waiting for item from queue"
-                step, step_location, spawntime = search_items_queue.get()
-                status['message'] = "Searching at {},{}".format(step_location[0], step_location[1])
-                log.info('Searching step %d, remaining %d', step, search_items_queue.qsize())
-                if timeDif(curSec(), spawntime) < 840:  # if we arnt 14mins too late
-                    # set position
+                # Grab the next thing to search
+                status['message'] = "Waiting for next spawn"
+                curSpawn = spawns[pos]
+                step_location = [curSpawn.lat, curSpawn.lng, 40.32]
+                log.info('Searching step %d', pos)
+                if timeDif(curSec(), curSpawn.time) < 420:  # if we arnt 7mins too late
+                    while timeDif(curSec(), curSpawn.time) < 30:  # wait until the aspawn is atlest 30 seconds old
+                        status['message'] = "Waiting for spawnpoints {} of {} to spawn at {}".format(curSpawn.lat, curSpawn.lng, curSpawn.time)
+                        time.sleep(1)
+                    status['message'] = "Searching at {},{}".format(curSpawn.lat, curSpawn.lng)
+                    # set position (with dummy alt)
                     api.set_position(*step_location)
                     # try scan (with retries)
                     failed_total = 0
                     while True:
                         if failed_total >= args.scan_retries:
-                            log.error('Search step %d went over max scan_retires; abandoning', step)
-                            # Didn't succeed, but we are done with this queue item
-                            search_items_queue.task_done()
-
+                            log.error('Search step %d went over max scan_retires; abandoning', pos)
+                            pos = (pos + 1) % len(spawns)
                             # Sleep for 2 hours, print a log message every 5 minutes.
                             long_sleep_time = 0
                             long_sleep_started = time.strftime("%H:%M")
@@ -591,47 +601,47 @@ def search_worker_thread_ss(args, account, search_items_queue, parse_lock, encry
                                 status['message'] = 'Worker {} failed, possibly banned account. Started 2 hour sleep at {}'.format(account['username'], long_sleep_started)
                                 long_sleep_time += 300
                                 time.sleep(300)
-                            break
+                            raise banExeption('account posibly banned')  # will force a relog and a reposition in the spawnlist
                         sleep_time = args.scan_delay * (1 + failed_total)
                         check_login(args, account, api, step_location)
                         # make the map request
                         response_dict = map_request(api, step_location, args.jitter)
                         # check if got anything back
                         if not response_dict:
-                            log.error('Search step %d area download failed, retyring request in %g seconds', step, sleep_time)
+                            log.error('Search step %d area download failed, retyring request in %g seconds', pos, sleep_time)
                             failed_total += 1
                             status['fail'] += 1
-                            status['message'] = "Failed {} times to scan {},{} - no response - sleeping {} seconds. Username: {}".format(failed_total, step_location[0], step_location[1], sleep_time, account['username'])
+                            status['message'] = "Failed {} times to scan {},{} - no response - sleeping {} seconds. Username: {}".format(failed_total, curSpawn.lat, curSpawn.lng, sleep_time, account['username'])
                             time.sleep(sleep_time)
                             continue
                         # got responce try and parse it
                         try:
                             findCount = parse_map(args, response_dict, step_location, dbq, whq)
-                            log.debug('Search step %s completed', step)
-                            search_items_queue.task_done()
+                            log.debug('Search step %s completed', pos)
                             if findCount > 0:
                                 status['success'] += 1
                             else:
                                 status['noitems'] += 1
+                            pos = (pos + 1) % len(spawns)
                             break  # All done, get out of the request-retry loop
                         except KeyError:
-                            log.exception('Search step %s map parsing failed, retrying request in %g seconds. Username: %s', step, sleep_time, account['username'])
+                            log.exception('Search step %s map parsing failed, retrying request in %g seconds. Username: %s', pos, sleep_time, account['username'])
                             failed_total += 1
                             status['fail'] += 1
-                            status['message'] = "Failed {} times to scan {},{} - map parsing failed - sleeping {} seconds. Username: {}".format(failed_total, step_location[0], step_location[1], sleep_time, account['username'])
+                            status['message'] = "Failed {} times to scan {},{} - map parsing failed - sleeping {} seconds. Username: {}".format(failed_total, curSpawn.lat, curSpawn.lng, sleep_time, account['username'])
                             time.sleep(sleep_time)
                         time.sleep(sleep_time)
-                    status['message'] = "Waiting {} seconds for scan delay".format(sleep_time)
-                    time.sleep(sleep_time)
+                    status['message'] = "Waiting {} seconds for scan delay".format(args.scan_delay)
+                    time.sleep(args.scan_delay)
                 else:
-                    search_items_queue.task_done()
+                    pos = (pos + 1) % len(spawns)
                     log.info('Cant keep up. Skipping')
                     status['skip'] += 1
                     status['message'] = "Skipping spawnpoint - can't keep up."
         except Exception as e:
             status['message'] = "Exception in search_worker.  Username: {}".format(account['username'])
             log.exception('Exception in search_worker: %s', e)
-            time.sleep(sleep_time)
+            time.sleep(args.scan_delay)
 
 
 def check_login(args, account, api, position):
