@@ -1136,7 +1136,7 @@ function pokestopLabel (expireTime, latitude, longitude) {
         Location: ${latitude.toFixed(6)}, ${longitude.toFixed(7)}
       </div>
       <div>
-        <a href='https://www.google.com/maps/dir/My+Location/${latitude},${longitude}?hl=en' target='_blank' title='View in Maps'>Get directions</a>
+        <a href='https://www.google.com/maps/dir/Current+Location/${latitude},${longitude}?hl=en' target='_blank' title='View in Maps'>Get directions</a>
       </div>`
   }
 
