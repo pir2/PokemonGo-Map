@@ -465,8 +465,7 @@ class SpeedScan(HexSearch):
 
     # Function to empty all queues in the queues list
     def empty_queues(self):
-        for queue in self.queues:
-            queue = []
+        self.queues = []
 
     # How long to delay since last action
     def delay(self, last_scan_date):
