@@ -8,7 +8,6 @@ import gc
 import time
 import geopy
 import math
-from geopy.distance import vincenty
 from peewee import SqliteDatabase, InsertQuery, Check, ForeignKeyField, \
     IntegerField, CharField, DoubleField, BooleanField, \
     DateTimeField, fn, DeleteQuery, CompositeKey, FloatField, SQL, TextField
@@ -22,7 +21,7 @@ from cachetools import TTLCache
 from cachetools import cached
 
 from . import config
-from .utils import get_pokemon_name, get_pokemon_rarity, get_pokemon_types, get_args, now, min_sec, cellid, in_radius
+from .utils import get_pokemon_name, get_pokemon_rarity, get_pokemon_types, get_args, cellid, in_radius
 from .transform import transform_from_wgs_to_gcj, get_new_coords
 from .customLog import printPokemon
 
@@ -469,20 +468,20 @@ class ScannedLocation(BaseModel):
     # with a 2 minute window during which the scan can be done
 
     # default of -1 is for bands not yet scanned
-    band1 = IntegerField(default = -1, constraints=[Check('band1 >= -1'), Check('band1 < 3600')])
-    band2 = IntegerField(default = -1, constraints=[Check('band2 >= -1'), Check('band2 < 3600')])
-    band3 = IntegerField(default = -1, constraints=[Check('band3 >= -1'), Check('band3 < 3600')])
-    band4 = IntegerField(default = -1, constraints=[Check('band4 >= -1'), Check('band4 < 3600')])
-    band5 = IntegerField(default = -1, constraints=[Check('band5 >= -1'), Check('band5 < 3600')])
+    band1 = IntegerField(default=-1, constraints=[Check('band1 >= -1'), Check('band1 < 3600')])
+    band2 = IntegerField(default=-1, constraints=[Check('band2 >= -1'), Check('band2 < 3600')])
+    band3 = IntegerField(default=-1, constraints=[Check('band3 >= -1'), Check('band3 < 3600')])
+    band4 = IntegerField(default=-1, constraints=[Check('band4 >= -1'), Check('band4 < 3600')])
+    band5 = IntegerField(default=-1, constraints=[Check('band5 >= -1'), Check('band5 < 3600')])
 
     # midpoint is the center of the bands relative to band 1
     # e.g., if band 1 is 10.4 min, and band 4 is 34.0 min, midpoint is -0.2 min in minsec
     # extra 10 seconds in case of delay in recording now time
-    midpoint = IntegerField(default = 0, constraints=[Check('midpoint >= -130'), Check('midpoint <= 130')])
+    midpoint = IntegerField(default=0, constraints=[Check('midpoint >= -130'), Check('midpoint <= 130')])
 
     # width is how wide the valid window is. Default is 0, max is 2 min
     # e.g., if band 1 is 10.4 min, and band 4 is 34.0 min, midpoint is 0.4 min in minsec
-    width = IntegerField(default = 0, constraints=[Check('width >= 0'), Check('width <= 120')])
+    width = IntegerField(default=0, constraints=[Check('width >= 0'), Check('width <= 120')])
 
     class Meta:
         indexes = ((('latitude', 'longitude'), False),)
@@ -506,38 +505,38 @@ class ScannedLocation(BaseModel):
     @staticmethod
     def db_format(scan, band, nowms):
         scan.update({'band' + str(band): nowms})
-        scan['done'] = reduce(lambda x, y: x and (scan['band' + str(y)] > -1), range(1,6), True)
+        scan['done'] = reduce(lambda x, y: x and (scan['band' + str(y)] > -1), range(1, 6), True)
         return scan
 
     # Shorthand helper for DB dict
     @staticmethod
-    def _q_init(scan, start, end, kind, sp_id = None):
+    def _q_init(scan, start, end, kind, sp_id=None):
         return {'loc': scan['loc'], 'kind': kind, 'start': start, 'end': end, 'step': scan['step'], 'sp': sp_id}
 
     # return value of a particular scan from loc, or default dict if not found
     @classmethod
     def get_by_loc(cls, loc):
         query = (cls
-                .select()
-                .where( (ScannedLocation.latitude == loc[0]) &
+                 .select()
+                 .where((ScannedLocation.latitude == loc[0]) &
                         (ScannedLocation.longitude == loc[1]))
-                .dicts())
-        
-        return query[0] if len(list(query)) else {  'cellid': cellid(loc),
-                                                    'latitude': loc[0],
-                                                    'longitude': loc[1],
-                                                    'done': False,
-                                                    'band1': -1,
-                                                    'band2': -1,
-                                                    'band3': -1,
-                                                    'band4': -1,
-                                                    'band5': -1,
-                                                    'width': 0,
-                                                    'midpoint': 0,
-                                                    'last_modified': None}
+                 .dicts())
+
+        return query[0] if len(list(query)) else {'cellid': cellid(loc),
+                                                  'latitude': loc[0],
+                                                  'longitude': loc[1],
+                                                  'done': False,
+                                                  'band1': -1,
+                                                  'band2': -1,
+                                                  'band3': -1,
+                                                  'band4': -1,
+                                                  'band5': -1,
+                                                  'width': 0,
+                                                  'midpoint': 0,
+                                                  'last_modified': None}
 
     # Check if spawn points in a list are in any of the existing spannedlocation records
-    # Otherwise, search through the spawn point list, and update scan_spawn_point dict for DB bulk upserting 
+    # Otherwise, search through the spawn point list, and update scan_spawn_point dict for DB bulk upserting
     @classmethod
     def get_spawn_points(cls, scans, spawn_points, distance, scan_spawn_point):
         for cell, scan in scans.iteritems():
@@ -548,25 +547,25 @@ class ScannedLocation(BaseModel):
             # Otherwise, do a search of spawn points from the list to see if in range
             for sp in spawn_points:
                 if in_radius((sp['latitude'], sp['longitude']), scan['loc'], distance):
-                    scan_spawn_point[cell + sp['id']] = {   'spawnpoint': sp['id'],
-                                                            'scannedlocation': cell}
+                    scan_spawn_point[cell + sp['id']] = {'spawnpoint': sp['id'],
+                                                         'scannedlocation': cell}
 
-    # return list of dicts for upcoming valid band times 
+    # return list of dicts for upcoming valid band times
     @classmethod
     def linked_spawn_points(cls, cell):
         query = (SpawnPoint
-                .select()
-                .join(ScanSpawnPoint)
-                .join(cls)
-                .where(cls.cellid == cell).dicts())
+                 .select()
+                 .join(ScanSpawnPoint)
+                 .join(cls)
+                 .where(cls.cellid == cell).dicts())
 
         return list(query)
 
-    # return list of dicts for upcoming valid band times 
+    # return list of dicts for upcoming valid band times
     @staticmethod
     def visible_forts(step_location):
         distance = 0.9
-        n, e, s, w = hex_bounds(step_location, radius = distance * 1000)
+        n, e, s, w = hex_bounds(step_location, radius=distance * 1000)
         for g in Gym.get_gyms(s, w, n, e).values():
             if in_radius((g['latitude'], g['longitude']), step_location, distance):
                 return True
@@ -577,15 +576,15 @@ class ScannedLocation(BaseModel):
 
         return False
 
-    # return list of dicts for upcoming valid band times 
+    # return list of dicts for upcoming valid band times
     @classmethod
     def get_times(cls, scan, now_date):
         s = cls.get_by_loc(scan['loc'])
-        if s['done'] == True:
+        if s['done']:
             return []
 
-        max = 3600 * 2 + 250 # greater than maximum possible value
-        min = {'end' : max}
+        max = 3600 * 2 + 250  # greater than maximum possible value
+        min = {'end': max}
 
         nowms = now_date.minute * 60 + now_date.second
         if s['band1'] == -1:
@@ -593,15 +592,15 @@ class ScannedLocation(BaseModel):
 
         # Find next window
         basems = s['band1']
-        for i in range(2,6):
+        for i in range(2, 6):
             ms = s['band' + str(i)]
 
             # skip bands already done
             if ms > -1:
                 continue
-            
+
             radius = 120 - s['width'] / 2
-            end = (basems + s['midpoint'] + radius + (i-1) * 720 - 5) % 3600
+            end = (basems + s['midpoint'] + radius + (i - 1) * 720 - 5) % 3600
             end = end if end >= nowms else end + 3600
 
             if end < min['end']:
@@ -617,16 +616,16 @@ class ScannedLocation(BaseModel):
         now_date = datetime.utcnow()
         scan['last_modified'] = now_date
 
-        if scan['done'] == True:
+        if scan['done']:
             return scan
 
         now_ms = now_date.minute * 60 + now_date.second
         if scan['band1'] == -1:
-            return cls.db_format(scan, 1, now_ms) 
+            return cls.db_format(scan, 1, now_ms)
 
         # calc if number falls in band with remaining points
         basems = scan['band1']
-        delta = (now_ms - basems - scan['midpoint']+ 3600) % 3600
+        delta = (now_ms - basems - scan['midpoint'] + 3600) % 3600
         band = int(round(delta / 12 / 60.0) % 5) + 1
 
         # Check if that band already filled
@@ -635,13 +634,13 @@ class ScannedLocation(BaseModel):
 
         # Check if this result falls within the band 2 min window
         offset = (delta + 1080) % 720 - 360
-        if abs(offset) > 120 - scan['width']/2:
+        if abs(offset) > 120 - scan['width'] / 2:
             return scan
-        
+
         # find band midpoint/width
         scan = cls.db_format(scan, band, now_ms)
-        bts = [scan['band' + str(i)] for i in range(1,6)]
-        bts = filter(lambda ms: ms > -1, bts) 
+        bts = [scan['band' + str(i)] for i in range(1, 6)]
+        bts = filter(lambda ms: ms > -1, bts)
         bts_delta = map(lambda ms: (ms - basems + 3600) % 3600, bts)
         bts_offsets = map(lambda ms: (ms + 1080) % 720 - 360, bts_delta)
         min_scan = min(bts_offsets)
@@ -656,9 +655,9 @@ class ScannedLocation(BaseModel):
         filled = 0
         for e in locations:
             sl = cls.get_by_loc(e[1])
-            bands = [sl['band' + str(i)] for i in range(1,6)]
+            bands = [sl['band' + str(i)] for i in range(1, 6)]
             filled += reduce(lambda x, y: x + (y > -1), bands, 0)
-        
+
         return filled
 
 
@@ -695,8 +694,6 @@ class WorkerStatus(BaseModel):
                 'last_scan_date': status['last_scan_date'],
                 'latitude': status['location'][0],
                 'longitude': status['location'][1]}
-        
-
 
     @staticmethod
     def get_recent():
@@ -729,7 +726,6 @@ class SpawnPoint(BaseModel):
     longitude = DoubleField()
     despawn_time = IntegerField(constraints=[Check('despawn_time >= 0'), Check('despawn_time < 3600')], null=True)
     last_modified = DateTimeField(index=True)
-    
 
     class Meta:
         indexes = ((('latitude', 'longitude'), False),)
@@ -738,21 +734,20 @@ class SpawnPoint(BaseModel):
     @classmethod
     def get_by_id(cls, id):
         query = (cls
-                .select()
-                .where(cls.id == id)
-                .dicts())
+                 .select()
+                 .where(cls.id == id)
+                 .dicts())
 
         return query[0] if query else []
 
     # Check if spawn points are in any of the existing spannedlocation records
-    # Update scan_spawn_points for DB bulk upserting 
+    # Update scan_spawn_points for DB bulk upserting
     @staticmethod
     def add_to_scans(sp, scan_spawn_points):
         for sl in ScannedLocation.select():
             if in_radius((sp['latitude'], sp['longitude']), (sl.latitude, sl.longitude), 0.07):
-                scan_spawn_points[sl.cellid + sp['id']] = { 'spawnpoint': sp['id'],
-                                                            'scannedlocation': sl.cellid}
-        
+                scan_spawn_points[sl.cellid + sp['id']] = {'spawnpoint': sp['id'],
+                                                           'scannedlocation': sl.cellid}
 
     # Return a list of dicts with the next spawn times
     @classmethod
@@ -764,7 +759,7 @@ class SpawnPoint(BaseModel):
             if end < now_ms:
                 end += 3600
 
-            start = end - 15 * 60 + scan_delay # one minute buffer to ensure spawned
+            start = end - 15 * 60 + scan_delay  # one minute buffer to ensure spawned
 
             if (now_date - cls.get_by_id(sp['id'])['last_modified']).total_seconds() <= now_ms - start:
                 continue
@@ -781,19 +776,19 @@ class SpawnPoint(BaseModel):
 
         # get all spawns in that box
         sp = list(cls
-                .select()
-                .where((cls.latitude <= n) &
-                    (cls.latitude >= s) &
-                    (cls.longitude >= w) &
-                    (cls.longitude <= e))
-                .dicts())
+                  .select()
+                  .where((cls.latitude <= n) &
+                         (cls.latitude >= s) &
+                         (cls.longitude >= w) &
+                         (cls.longitude <= e))
+                  .dicts())
 
         # for each spawn work out if it is in the hex (clipping the diagonals)
         trueSpawns = []
         for spawn in sp:
             # get the offset from the center of each spawn in km
-            offset = [math.radians(spawn['latitude'] - center[0]) * R, math.radians(spawn['longitude'] - center[1]) \
-                 * (R * math.cos(math.radians(center[0])))]
+            offset = [math.radians(spawn['latitude'] - center[0]) * R,
+                      math.radians(spawn['longitude'] - center[1]) * (R * math.cos(math.radians(center[0])))]
             # check agains the 4 lines that make up the diagonals
             if (offset[1] + (offset[0] * 0.5)) > hdist:  # too far ne
                 continue
@@ -897,7 +892,7 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue):
     sightings = {}
     d_t_stamp = False
     new_spawn_points = []
-    bad_scan = True # Guilty until proven innocent
+    bad_scan = True  # Guilty until proven innocent
 
     cells = map_dict['responses']['GET_MAP_OBJECTS']['map_cells']
     for cell in cells:
@@ -956,7 +951,7 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue):
                         'last_modified': now_stamp,
                         'despawn_time': tth_ms
                     }
-                    
+
                     if not SpawnPoint.get_by_id(p['spawn_point_id']):
                         log.info('New Spawn Point found!')
                         new_spawn_points.append(spawn_points[p['encounter_id']])
@@ -1248,6 +1243,7 @@ def clean_db_loop(args):
                          .delete()
                          .where((Pokemon.disappear_time <
                                 (datetime.utcnow() - timedelta(hours=args.purge_data)))))
+                query.execute()
 
             log.info('Regular database cleaning complete')
             time.sleep(60)
@@ -1258,7 +1254,13 @@ def clean_db_loop(args):
 def bulk_upsert(cls, data):
     num_rows = len(data.values())
     i = 0
-    step = 120
+
+    if args.db_type == 'mysql':
+        step = 120
+    else:
+        # SQLite has a default max number of parameters of 999,
+        # so we need to limit how many rows we insert for it.
+        step = 50
 
     while i < num_rows:
         log.debug('Inserting items %d to %d', i, min(i + step, num_rows))
@@ -1279,15 +1281,15 @@ def bulk_upsert(cls, data):
 def create_tables(db):
     db.connect()
     verify_database_schema(db)
-    db.create_tables([Pokemon, Pokestop, Gym, ScannedLocation, GymDetails, GymMember, GymPokemon, \
-        Trainer, MainWorker, WorkerStatus, SpawnPoint, ScanSpawnPoint, SpawnSighting], safe=True)
+    db.create_tables([Pokemon, Pokestop, Gym, ScannedLocation, GymDetails, GymMember, GymPokemon,
+                      Trainer, MainWorker, WorkerStatus, SpawnPoint, ScanSpawnPoint, SpawnSighting], safe=True)
     db.close()
 
 
 def drop_tables(db):
     db.connect()
-    db.drop_tables([Pokemon, Pokestop, Gym, ScannedLocation, Versions, GymDetails, GymMember, GymPokemon, \
-        Trainer, MainWorker, WorkerStatus, SpawnPoint, ScanSpawnPoint, SpawnSighting, Versions], safe=True)
+    db.drop_tables([Pokemon, Pokestop, Gym, ScannedLocation, Versions, GymDetails, GymMember, GymPokemon,
+                    Trainer, MainWorker, WorkerStatus, SpawnPoint, ScanSpawnPoint, SpawnSighting, Versions], safe=True)
     db.close()
 
 
@@ -1368,7 +1370,7 @@ def database_migrate(db, old_ver):
         )
 
     if old_ver < 8:
-        # Information in ScannedLocation and Member Status probably already out of date, 
+        # Information in ScannedLocation and Member Status probably already out of date,
         # so drop and re-create
 
         db.drop_tables([ScannedLocation])
