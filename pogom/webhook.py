@@ -97,7 +97,7 @@ def webhook_overseer_thread(args, wh_queue, enc_ids_done, position):
                 enc_ids_done.append(p)
         
         #clean up old pokemon
-        new_enc_ids = [for old in enc_ids_done if old['disappear_time'] > datetime.utcnow()]
+        new_enc_ids = [old for old in enc_ids_done if old['disappear_time'] > datetime.utcnow()]
         enc_ids_done = new_enc_ids
         
         #pause for 30s
