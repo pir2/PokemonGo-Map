@@ -164,7 +164,7 @@ def get_args():
     args = parser.parse_args()
 
     if args.webhook_db_only:
-        if not args.webhook:
+        if not args.webhooks:
             parser.print_usage()
             print(sys.argv[0] + ": error: arguments -wh/--webhook is required")
             sys.exit(1)
