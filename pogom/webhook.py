@@ -81,21 +81,20 @@ def webhook_overseer_thread(args, wh_queue, enc_ids_done, position):
 
         #place pokemon into queue for webhook
         
-        for p in Pokemon.get_active_by_id(wh_pokemonids, swLat, swLng,
-                         neLat, neLng) 
-                         if p['encounter_id'] not in enc_ids_done['encounter_id']:
-            wh_update_queue.put(('pokemon', {
-                'encounter_id': p['encounter_id'],
-                'spawnpoint_id': p['spawn_point_id'],
-                'pokemon_id': ['pokemon_id'],
-                'latitude': p['latitude'],
-                'longitude': p['longitude'],
-                'disappear_time': p['disappear_time'],
-                'last_modified_time': p['last_modified_timestamp_ms'],
-                'time_until_hidden_ms': p['time_till_hidden_ms']
-            }))        
-            #add encounter id to enc_ids_done = {}
-            enc_ids_done.append(p)
+        for p in Pokemon.get_active_by_id(wh_pokemonids, swLat, swLng, neLat, neLng): 
+            if p['encounter_id'] not in enc_ids_done['encounter_id']:
+                wh_update_queue.put(('pokemon', {
+                    'encounter_id': p['encounter_id'],
+                    'spawnpoint_id': p['spawn_point_id'],
+                    'pokemon_id': ['pokemon_id'],
+                    'latitude': p['latitude'],
+                    'longitude': p['longitude'],
+                    'disappear_time': p['disappear_time'],
+                    'last_modified_time': p['last_modified_timestamp_ms'],
+                    'time_until_hidden_ms': p['time_till_hidden_ms']
+                }))        
+                #add encounter id to enc_ids_done = {}
+                enc_ids_done.append(p)
         
         #clean up old pokemon
         new_enc_ids = [for old in enc_ids_done if old['disappear_time'] > datetime.utcnow()]
