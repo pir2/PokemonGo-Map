@@ -24,7 +24,7 @@ from pogom.utils import get_args, get_encryption_lib_path
 
 from pogom.search import search_overseer_thread, search_overseer_thread_ss
 from pogom.models import init_database, create_tables, drop_tables, Pokemon, db_updater, clean_db_loop
-from pogom.webhook import wh_updater
+from pogom.webhook import wh_updater, webhook_overseer_thread
 
 # Currently supported pgoapi
 pgoapi_version = "1.1.7"
@@ -201,6 +201,12 @@ def main():
     if args.cors:
         CORS(app)
 
+    if args.webhook_db_only:
+        webhook_thread = Thread(target=webhook_overseer_thread, args=argset)
+        webhook_thread.daemon = True
+        webhook_thread.name = 'webhook-overseer'
+        webhook_thread.start()
+        
     # No more stale JS
     init_cache_busting(app)
 
