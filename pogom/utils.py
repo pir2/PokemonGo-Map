@@ -156,10 +156,16 @@ def get_args():
     parser.add_argument('-ps', '--print-status', action='store_true',
                         help='Show a status screen instead of log messages. Can switch between status and logs by pressing enter.', default=False)
     parser.add_argument('-el', '--encrypt-lib', help='Path to encrypt lib to be used instead of the shipped ones')
+    parser.add_argument('whdbonly','--webhook-db-only', help='Grab pokemons from DB and send to webhook, no searcher, no server',
+                        action='store_true', default=False)
     parser.set_defaults(DEBUG=False)
 
     args = parser.parse_args()
 
+    if args.webhook_db_only:
+        args.only_server = True
+        args.no_server = True
+    
     if args.only_server:
         if args.location is None:
             parser.print_usage()
