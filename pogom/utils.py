@@ -159,7 +159,7 @@ def get_args():
     parser.add_argument('-whdbonly','--webhook-db-only', help='Requires webhook. Grab pokemons from DB and send to webhook, no searcher, no server',
                         action='store_true', default=False)
     parser.add_argument('-whids','--webhook-ids', action='append', default=[], help='Only sends specified pokemon ids to webhook',
-                        action='store_true', default=False)    
+                        action='store_true')    
     parser.set_defaults(DEBUG=False)
 
     args = parser.parse_args()
