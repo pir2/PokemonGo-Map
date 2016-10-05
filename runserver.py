@@ -203,7 +203,7 @@ def main():
 
     if args.webhook_db_only:
         enc_ids_done = {}
-        argset = (args, wh_updates_queue, enc_ids_done)
+        argset = (args, wh_updates_queue, enc_ids_done, position)
         webhook_thread = Thread(target=webhook_overseer_thread, args=argset)
         webhook_thread.daemon = True
         webhook_thread.name = 'webhook-overseer'
