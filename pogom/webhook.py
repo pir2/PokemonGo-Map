@@ -102,11 +102,9 @@ def webhook_overseer_thread(args, wh_queue, enc_ids_done, position):
                 }))        
                 #add encounter id to enc_ids_done = {}
                 log.info('Webhook DB sent pokemon_id: {} to webhook'.format(p['pokemon_id']))
-                enc_ids_done.append(p)
+                enc_ids_done.append(p['encounter_id'])
         
         #clean up old pokemon
-        new_enc_ids = [old for old in enc_ids_done if old['disappear_time'] > datetime.utcnow()]
-        enc_ids_done = new_enc_ids
         
         #pause for 30s
         time.sleep(30)
