@@ -48,7 +48,7 @@ def webhook_overseer_thread(args, wh_queue, enc_ids_done, position):
 
     log.info('Webhook overseer starting')
 
-    parse_lock = Lock()
+    #parse_lock = Lock()
     threadStatus = {}
 
     current_location = [position[0],position[1]]
