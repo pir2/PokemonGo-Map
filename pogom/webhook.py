@@ -84,7 +84,7 @@ def webhook_overseer_thread(args, wh_queue, enc_ids_done, position):
         #place pokemon into queue for webhook
         
         for p in Pokemon.get_active_by_id(wh_pokemonids, swLat, swLng, neLat, neLng): 
-            if not enc_ids_done and p['encounter_id'] not in enc_ids_done['encounter_id']:
+            if not enc_ids_done and p['encounter_id'] not in enc_ids_done:
                 wh_queue.put(('pokemon', {
                     'encounter_id': p['encounter_id'],
                     'spawnpoint_id': p['spawnpoint_id'],
