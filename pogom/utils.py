@@ -228,6 +228,8 @@ def get_args():
         for i, username in enumerate(args.username):
             args.accounts.append({'username': username, 'password': args.password[i], 'auth_service': args.auth_service[i]})
 
+        args.webhook_ids = [int(x) for x in args.webhook_ids]
+    
     return args
 
 
