@@ -52,7 +52,7 @@ def webhook_overseer_thread(args, wh_queue, enc_ids_done, position):
     threadStatus = {}
 
     current_location = [float(position[0]),float(position[1])]
-    wh_pokemonids = [int(x) for x in args.webhook_ids]
+    wh_pokemonids = args.webhook_ids
 
     #threadStatus['Overseer'] = {}
     #threadStatus['Overseer']['message'] = "Initializing"
