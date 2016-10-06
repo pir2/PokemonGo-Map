@@ -88,7 +88,7 @@ def webhook_overseer_thread(args, wh_queue, enc_ids_done, position):
                 wh_queue.put(('pokemon', {
                     'encounter_id': p['encounter_id'],
                     'spawnpoint_id': p['spawnpoint_id'],
-                    'pokemon_id': ['pokemon_id'],
+                    'pokemon_id': p['pokemon_id'],
                     'latitude': p['latitude'],
                     'longitude': p['longitude'],
                     'disappear_time': calendar.timegm(p['disappear_time'].timetuple()),
