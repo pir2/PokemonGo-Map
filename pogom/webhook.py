@@ -51,7 +51,7 @@ def webhook_overseer_thread(args, wh_queue, enc_ids_done, position):
     #parse_lock = Lock()
     threadStatus = {}
 
-    current_location = [position[0],position[1]]
+    current_location = [float(position[0]),float(position[1])]
     wh_pokemonids = args.webhook_ids
     current_location = args.location
 
