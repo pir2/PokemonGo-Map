@@ -72,8 +72,8 @@ def webhook_overseer_thread(args, wh_queue, enc_ids_done, position):
     south, west = get_new_coords(current_location, sp_dist, 180), get_new_coords(current_location, sp_dist, 270)
     north, east = get_new_coords(current_location, sp_dist, 0), get_new_coords(current_location, sp_dist, 90)
 
-    swLat, swLng = south, west
-    neLat, neLng = north, east
+    swLat, swLng = south[0], west[1]
+    neLat, neLng = north[0], east[1]
     
     while True:
         #get pokemon that are disappearing in the future
