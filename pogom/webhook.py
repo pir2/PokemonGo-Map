@@ -3,6 +3,9 @@
 
 import logging
 import requests
+import time
+import calendar
+from datetime import datetime
 from .utils import get_args
 from .models import Pokemon
 from .search import get_new_coords
@@ -81,16 +84,21 @@ def webhook_overseer_thread(args, wh_queue, enc_ids_done, position):
         #place pokemon into queue for webhook
         
         for p in Pokemon.get_active_by_id(wh_pokemonids, swLat, swLng, neLat, neLng): 
-            if p['encounter_id'] not in enc_ids_done['encounter_id']:
+            if not enc_ids_done and p['encounter_id'] not in enc_ids_done['encounter_id']:
                 wh_update_queue.put(('pokemon', {
                     'encounter_id': p['encounter_id'],
-                    'spawnpoint_id': p['spawn_point_id'],
+                    'spawnpoint_id': p['spawnpoint_id'],
                     'pokemon_id': ['pokemon_id'],
                     'latitude': p['latitude'],
                     'longitude': p['longitude'],
-                    'disappear_time': p['disappear_time'],
-                    'last_modified_time': p['last_modified_timestamp_ms'],
-                    'time_until_hidden_ms': p['time_till_hidden_ms']
+                    'disappear_time': calendar.timegm(p['disappear_time'].timetuple()),
+                    'last_modified_time': '',
+                    'time_until_hidden_ms': '',
+                    'individual_attack': '',
+                    'individual_defense': '',
+                    'individual_stamina': '',
+                    'move_1': '',
+                    'move_2': ''
                 }))        
                 #add encounter id to enc_ids_done = {}
                 enc_ids_done.append(p)
