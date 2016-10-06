@@ -101,7 +101,7 @@ def webhook_overseer_thread(args, wh_queue, enc_ids_done, position):
                     'move_2': ''
                 }))        
                 #add encounter id to enc_ids_done = {}
-                log.info('Webhook DB sent pokemon_id: {} to {}'.format(p['pokemon_id'],args.webhook))
+                log.info('Webhook DB sent pokemon_id: {} to webhook'.format(p['pokemon_id']))
                 enc_ids_done.append(p)
         
         #clean up old pokemon
