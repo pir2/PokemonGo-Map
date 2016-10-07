@@ -222,6 +222,9 @@ def main():
         # This loop allows for ctrl-c interupts to work since flask won't be holding the program open
         while search_thread.is_alive():
             time.sleep(60)
+    elif args.webhook_db_only:
+        while webhook_thread.is_alive():
+            time.sleep(60)
     else:
         ssl_context = None
         if args.ssl_certificate and args.ssl_privatekey \
