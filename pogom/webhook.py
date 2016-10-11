@@ -75,7 +75,7 @@ def webhook_overseer_thread(args, wh_queue, enc_ids_done, position):
         #get pokemon that are disappearing in the future
         #place pokemon into queue for webhook
         
-        p = []
+        d = []
         
         if not wh_pokemonids:
             for p in Pokemon.get_active(swLat, swLng, neLat, neLng): 
@@ -97,7 +97,9 @@ def webhook_overseer_thread(args, wh_queue, enc_ids_done, position):
                     }))        
                     #add encounter id to enc_ids_done = {}
                     log.info('Webhook DB sent pokemon_id: {} to webhook'.format(p['pokemon_id']))
+                    d.append(p)
                     enc_ids_done.append(p['encounter_id'])
+                    
         else:
             for p in Pokemon.get_active_by_id(wh_pokemonids, swLat, swLng, neLat, neLng): 
                 if p['encounter_id'] not in enc_ids_done:
@@ -118,10 +120,11 @@ def webhook_overseer_thread(args, wh_queue, enc_ids_done, position):
                     }))        
                     #add encounter id to enc_ids_done = {}
                     log.info('Webhook DB sent pokemon_id: {} to webhook'.format(p['pokemon_id']))
+                    d.append(p)
                     enc_ids_done.append(p['encounter_id'])
         
         #clean up old pokemon
-        enc_ids_done = [done for done in enc_ids_done if done in p['encounter_id'].values()]
+        enc_ids_done = [done for done in enc_ids_done if done in d['encounter_id'].values()]
         
         #pause for 30s
         time.sleep(30)
