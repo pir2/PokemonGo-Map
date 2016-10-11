@@ -57,15 +57,8 @@ def webhook_overseer_thread(args, wh_queue, enc_ids_done, position):
     current_location = [float(position[0]),float(position[1])]
     wh_pokemonids = args.webhook_ids
 
-    #threadStatus['Overseer'] = {}
-    #threadStatus['Overseer']['message'] = "Initializing"
-    #threadStatus['Overseer']['type'] = "Overseer"
-    #threadStatus['Overseer']['method'] = "Webook"
-
     # Create a search_worker_thread per account
     log.info('Starting search worker threads')
-
-    # A place to track the current location
 
     # The real work starts here but will halt on pause_bit.set()
     # get the webhook area - borrowed from spawnpoint_only
@@ -80,31 +73,55 @@ def webhook_overseer_thread(args, wh_queue, enc_ids_done, position):
     
     while True:
         #get pokemon that are disappearing in the future
-
         #place pokemon into queue for webhook
         
-        for p in Pokemon.get_active_by_id(wh_pokemonids, swLat, swLng, neLat, neLng): 
-            if p['encounter_id'] not in enc_ids_done:
-                wh_queue.put(('pokemon', {
-                    'encounter_id': p['encounter_id'],
-                    'spawnpoint_id': p['spawnpoint_id'],
-                    'pokemon_id': p['pokemon_id'],
-                    'latitude': p['latitude'],
-                    'longitude': p['longitude'],
-                    'disappear_time': calendar.timegm(p['disappear_time'].timetuple()),
-                    'last_modified_time': '',
-                    'time_until_hidden_ms': '',
-                    'individual_attack': '',
-                    'individual_defense': '',
-                    'individual_stamina': '',
-                    'move_1': '',
-                    'move_2': ''
-                }))        
-                #add encounter id to enc_ids_done = {}
-                log.info('Webhook DB sent pokemon_id: {} to webhook'.format(p['pokemon_id']))
-                enc_ids_done.append(p['encounter_id'])
+        p = []
+        
+        if not wh_pokemonids:
+            for p in Pokemon.get_active(swLat, swLng, neLat, neLng): 
+                if p['encounter_id'] not in enc_ids_done:
+                    wh_queue.put(('pokemon', {
+                        'encounter_id': p['encounter_id'],
+                        'spawnpoint_id': p['spawnpoint_id'],
+                        'pokemon_id': p['pokemon_id'],
+                        'latitude': p['latitude'],
+                        'longitude': p['longitude'],
+                        'disappear_time': calendar.timegm(p['disappear_time'].timetuple()),
+                        'last_modified_time': '',
+                        'time_until_hidden_ms': '',
+                        'individual_attack': '',
+                        'individual_defense': '',
+                        'individual_stamina': '',
+                        'move_1': '',
+                        'move_2': ''
+                    }))        
+                    #add encounter id to enc_ids_done = {}
+                    log.info('Webhook DB sent pokemon_id: {} to webhook'.format(p['pokemon_id']))
+                    enc_ids_done.append(p['encounter_id'])
+        else:
+            for p in Pokemon.get_active_by_id(wh_pokemonids, swLat, swLng, neLat, neLng): 
+                if p['encounter_id'] not in enc_ids_done:
+                    wh_queue.put(('pokemon', {
+                        'encounter_id': p['encounter_id'],
+                        'spawnpoint_id': p['spawnpoint_id'],
+                        'pokemon_id': p['pokemon_id'],
+                        'latitude': p['latitude'],
+                        'longitude': p['longitude'],
+                        'disappear_time': calendar.timegm(p['disappear_time'].timetuple()),
+                        'last_modified_time': '',
+                        'time_until_hidden_ms': '',
+                        'individual_attack': '',
+                        'individual_defense': '',
+                        'individual_stamina': '',
+                        'move_1': '',
+                        'move_2': ''
+                    }))        
+                    #add encounter id to enc_ids_done = {}
+                    log.info('Webhook DB sent pokemon_id: {} to webhook'.format(p['pokemon_id']))
+                    enc_ids_done.append(p['encounter_id'])
         
         #clean up old pokemon
+        enc_ids_done = [done for done in enc_ids_done if done in p['encounter_id'].values()]
         
         #pause for 30s
         time.sleep(30)
