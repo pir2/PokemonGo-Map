@@ -263,6 +263,14 @@ def main():
     if args.cors:
         CORS(app)
 
+    if args.webhook_db:
+        enc_ids_done = []
+        argset = (args, wh_updates_queue, enc_ids_done, position)
+        webhook_thread = Thread(target=webhook_overseer_thread, args=argset)
+        webhook_thread.daemon = True
+        webhook_thread.name = 'webhook-overseer'
+        webhook_thread.start()
+
     # No more stale JS
     init_cache_busting(app)
 
@@ -276,6 +284,9 @@ def main():
     if args.no_server:
         # This loop allows for ctrl-c interupts to work since flask won't be holding the program open
         while search_thread.is_alive():
+            time.sleep(60)
+    elif args.webhook_db:
+        while webhook_thread.is_alive():
             time.sleep(60)
     else:
         ssl_context = None
