@@ -42,3 +42,58 @@ def wh_updater(args, q):
                 q.task_done()
         except Exception as e:
             log.exception('Exception in wh_updater: %s', e)
+
+
+def webhook_overseer_thread(args, wh_queue, enc_ids_done, position):
+
+    log.info('Webhook overseer starting')
+
+    threadStatus = {}
+
+    current_location = [float(position[0]),float(position[1])]
+    wh_pokemonids = args.webhook_ids
+
+    # Create a search_worker_thread per account
+    log.info('Starting search worker threads')
+
+    # get the webhook area - borrowed from spawnpoint_only
+    sp_dist = 0.07 * 2 * args.step_limit
+    log.debug('Spawnpoint search radius: %f', sp_dist)
+    # generate coords of the midpoints of each edge of the square
+    south, west = get_new_coords(current_location, sp_dist, 180), get_new_coords(current_location, sp_dist, 270)
+    north, east = get_new_coords(current_location, sp_dist, 0), get_new_coords(current_location, sp_dist, 90)
+
+    swLat, swLng = south[0], west[1]
+    neLat, neLng = north[0], east[1]
+    
+    while True:
+        #get pokemon that are disappearing in the future
+        #place pokemon into queue for webhook
+        
+        d = []
+        
+        if not wh_pokemonids:
+            for p in Pokemon.get_active(swLat, swLng, neLat, neLng): 
+                if p['encounter_id'] not in enc_ids_done:
+                    wh_queue.put(('pokemon', p))        
+                    #add encounter id to enc_ids_done = {}
+                    log.info('Webhook DB sent pokemon_id: {} to webhook'.format(p['pokemon_id']))
+                    d.append(p)
+                    enc_ids_done.append(p['encounter_id'])
+                    
+        else:
+            for p in Pokemon.get_active_by_id(wh_pokemonids, swLat, swLng, neLat, neLng): 
+                if p['encounter_id'] not in enc_ids_done:
+                    wh_queue.put(('pokemon', p))        
+                    #add encounter id to enc_ids_done = {}
+                    log.info('Webhook DB sent pokemon_id: {} to webhook'.format(p['pokemon_id']))
+                    d.append(p)
+                    enc_ids_done.append(p['encounter_id'])
+        
+        #clean up old pokemon
+        enc_ids_done = [done for done in enc_ids_done if done in d['encounter_id'].values()]
+        
+        #pause for 30s
+        time.sleep(30)
+
+
