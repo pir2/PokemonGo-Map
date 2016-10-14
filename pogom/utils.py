@@ -192,6 +192,9 @@ def get_args():
     verbosity = parser.add_mutually_exclusive_group()
     verbosity.add_argument('-v', '--verbose', help='Show debug messages from PomemonGo-Map and pgoapi. Optionally specify file to log to.', nargs='?', const='nofile', default=False, metavar='filename.log')
     verbosity.add_argument('-vv', '--very-verbose', help='Like verbose, but show debug messages from all modules as well.  Optionally specify file to log to.', nargs='?', const='nofile', default=False, metavar='filename.log')
+    parser.add_argument('-whdb','--webhook-db', help='Requires webhook. Grab pokemons from DB and send to webhook, no searcher, no server required',
+                        action='store_true', default=False)
+    parser.add_argument('-whids','--webhook-ids', help='Only sends specified pokemon ids to webhook', action='append', default=[])
     parser.set_defaults(DEBUG=False)
 
     args = parser.parse_args()
@@ -365,6 +368,9 @@ def get_args():
             args.scheduler = 'HexSearchSpawnpoint'
         else:
             args.scheduler = 'HexSearch'
+
+        #Set pokemon_ids as integers for webhook_db
+        args.webhook_ids = [int(x) for x in args.webhook_ids]
 
     return args
 
